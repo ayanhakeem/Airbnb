@@ -123,6 +123,19 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
+Contributions are welcome! If you'd like to contribute, follow these steps:
+
+Fork the repository.
+
+Create a new branch for your feature or bugfix:
+
+git checkout -b feature-name
+Commit your changes and push them:
+
+git commit -m "Add your message here"
+git push origin feature-name
+Open a pull request.
+
 ## Contact
 
 For any questions or feedback, feel free to reach out:

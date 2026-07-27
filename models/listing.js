@@ -25,7 +25,21 @@ const listingSchema=new Schema({
         type:Schema.Types.ObjectId,
         ref:"User",
     },
+    geometry: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            required: true
+        },
+        coordinates: {
+            type: [Number],
+            required: true
+        }
+    }
 });
+
+listingSchema.index({ geometry: "2dsphere" });
+
 
 listingSchema.post("findOneAndDelete",async(listing)=>{
     if(listing){

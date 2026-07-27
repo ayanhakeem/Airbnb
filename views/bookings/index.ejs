@@ -1,0 +1,80 @@
+<% layout("/layouts/boilerplate")%>
+<div class="row mt-3">
+    <div class="col-10 offset-1">
+        <h3>My Bookings</h3>
+        <br>
+        
+        <% if (bookings.length === 0) { %>
+            <div class="alert alert-info" role="alert">
+                You have no bookings yet. Explore some <a href="/listings">wonderful listings</a> and make your first booking!
+            </div>
+        <% } else { %>
+            <div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1">
+                <% for (let booking of bookings) { %>
+                    <% if (booking.listing) { %>
+                        <div class="col mb-4">
+                            <div class="card listing-card">
+                                <img src="<%= booking.listing.image.url %>" class="card-img-top" alt="listing_image" style="height: 15rem; object-fit: cover;">
+                                <div class="card-body">
+                                    <h5 class="card-title"><b><%= booking.listing.title %></b></h5>
+                                    <p class="card-text">
+                                        <strong>Check-in:</strong> <%= booking.startDate.toDateString() %><br>
+                                        <strong>Check-out:</strong> <%= booking.endDate.toDateString() %>
+                                    </p>
+                                    <p class="card-text">
+                                        <strong>Status:</strong> 
+                                        <% if (booking.status === 'CONFIRMED') { %>
+                                            <span class="badge bg-success">Confirmed</span>
+                                        <% } else if (booking.status === 'PENDING') { %>
+                                            <span class="badge bg-warning text-dark">Pending Payment</span>
+                                        <% } else { %>
+                                            <span class="badge bg-danger">Cancelled</span>
+                                        <% } %>
+                                    </p>
+
+                                    <!-- Weather Protection Section -->
+                                    <% if (booking.weatherProtected) { %>
+                                        <hr>
+                                        <div class="weather-protection-status p-2 rounded mb-3" style="background-color: #f0f7ff; border: 1px solid #cce5ff; font-size: 0.85rem;">
+                                            <span style="font-weight: bold; color: #004085;">
+                                                <i class="fa-solid fa-shield-halved"></i> Weather Protected Stay
+                                            </span>
+                                            
+                                            <% if (booking.weatherStatus === 'active') { %>
+                                                <div class="mt-2 text-danger">
+                                                    <i class="fa-solid fa-cloud-showers-heavy"></i> <b>Bad Weather Warning!</b> Heavy rain predicted during your trip dates.
+                                                </div>
+                                                <div class="d-flex gap-2 mt-2">
+                                                    <form method="POST" action="/listings/<%= booking.listing._id %>/bookings/<%= booking._id %>/weather/claim-voucher" style="flex: 1; margin: 0;">
+                                                        <button class="btn btn-sm btn-warning w-100" style="font-size: 0.75rem; padding: 0.25rem;">Claim 25% Voucher</button>
+                                                    </form>
+                                                    <form method="POST" action="/listings/<%= booking.listing._id %>/bookings/<%= booking._id %>/weather/reschedule" style="flex: 1; margin: 0;">
+                                                        <button class="btn btn-sm btn-primary w-100" style="font-size: 0.75rem; padding: 0.25rem;">Reschedule</button>
+                                                    </form>
+                                                </div>
+                                            <% } else if (booking.weatherStatus === 'claimed_voucher') { %>
+                                                <div class="mt-2 text-success">
+                                                    <i class="fa-solid fa-ticket"></i> 25% discount voucher claimed: <strong style="letter-spacing: 0.5px;">WEATHER25</strong>
+                                                </div>
+                                            <% } else if (booking.weatherStatus === 'rescheduled') { %>
+                                                <div class="mt-2 text-primary">
+                                                    <i class="fa-solid fa-calendar-check"></i> Rescheduled to a sunny weekend! (See new dates above)
+                                                </div>
+                                            <% } %>
+                                        </div>
+                                    <% } %>
+
+                                    <% if (booking.status === 'PENDING' && booking.lockedUntil > new Date()) { %>
+                                        <a href="/listings/<%= booking.listing._id %>/bookings/<%= booking._id %>/payment" class="btn btn-dark btn-sm w-100">Pay Now</a>
+                                    <% } else { %>
+                                        <a href="/listings/<%= booking.listing._id %>" class="btn btn-outline-dark btn-sm w-100">View Listing</a>
+                                    <% } %>
+                                </div>
+                            </div>
+                        </div>
+                    <% } %>
+                <% } %>
+            </div>
+        <% } %>
+    </div>
+</div>

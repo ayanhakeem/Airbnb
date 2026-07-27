@@ -1,4 +1,15 @@
 <% layout("/layouts/boilerplate")%>
+<script>
+    window.currentListing = {
+        id: "<%= listing._id %>",
+        title: "<%= listing.title.replace(/"/g, '\\"') %>",
+        price: <%= listing.price %>,
+        owner: "<%= listing.owner.username %>"
+    };
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
 <div class="row mt-3">
 <div class="col-8 offset-3">
     <h3><%=listing.title%></h3>
@@ -25,6 +36,52 @@
 
     <div class="col-6 offset-3 mb-3">
     <hr>
+    <h4>Book this Place</h4>
+    <form action="/listings/<%=listing._id%>/bookings" method="POST" class="needs-validation" novalidate>
+        <input type="hidden" name="weatherProtected" id="weatherProtected" value="false">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="startDate" class="form-label">Check-in</label>
+                <input type="date" class="form-control datepicker" id="startDate" name="startDate" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="endDate" class="form-label">Check-out</label>
+                <input type="date" class="form-control datepicker" id="endDate" name="endDate" required>
+            </div>
+        </div>
+
+        <!-- Weather Protection Badge -->
+        <div id="weather-protection-badge" class="alert alert-success d-none mb-3" style="border-radius: 12px; font-size: 0.9rem;">
+            <i class="fa-solid fa-shield-halved"></i> <strong>WanderBot Weather Protection Activated!</strong> 🌤️
+            <br><span style="font-size: 0.8rem; color: #155724;">You are protected. If weather is bad during your stay, you can reschedule for free or claim a 25% discount voucher.</span>
+        </div>
+        
+        <!-- Weather Simulation Toggle -->
+        <div class="mb-3 d-flex justify-content-between align-items-center bg-light p-2 rounded" style="font-size: 0.85rem; border: 1px dashed #ccc;">
+            <span>⛈️ Test Weather Simulation Mode</span>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="simulateRain" checked>
+                <label class="form-check-label text-muted" style="cursor: pointer;" for="simulateRain">Simulate Heavy Rain</label>
+            </div>
+        </div>
+
+        <button class="btn btn-dark w-100">Book Now</button>
+    </form>
+    <hr>
+
+    <h4>Where you'll be</h4>
+    <div id="map" style="height: 350px; border-radius: 15px; margin-bottom: 2rem;"></div>
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Nearby Landmarks</h5>
+            <ul id="landmarks-list" class="list-group list-group-flush">
+                <li class="list-group-item text-muted">Calculating distances...</li>
+            </ul>
+        </div>
+    </div>
+    <hr>
+
+
     <% if(currUser){ %>
     <h4>Leave a review</h4>
     <form action="/listings/<%=listing.id%>/reviews" method="POST" novalidate class="needs-validation">
@@ -75,3 +132,192 @@
 </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const socket = io();
+        const listingId = "<%=listing._id%>";
+        let disabledDates = [];
+
+        // Fetch initially booked dates
+        try {
+            const response = await fetch(`/listings/${listingId}/bookings/api`);
+            const bookings = await response.json();
+            
+            bookings.forEach(booking => {
+                disabledDates.push({
+                    from: booking.startDate,
+                    to: booking.endDate
+                });
+            });
+        } catch (e) {
+            console.error("Failed to load bookings");
+        }
+
+        const datePickerOptions = {
+            minDate: "today",
+            disable: disabledDates,
+            dateFormat: "Y-m-d"
+        };
+
+        async function checkWeatherAndOfferProtection() {
+            const startVal = document.getElementById("startDate").value;
+            const endVal = document.getElementById("endDate").value;
+            if (!startVal || !endVal) return;
+
+            const isSimulated = document.getElementById("simulateRain").checked;
+            
+            let isRainy = false;
+            let weatherMsg = "";
+
+            if (isSimulated) {
+                isRainy = true;
+                weatherMsg = "⚡ **Monsoon Storm & Heavy Rain Warning** ⚡<br>Our simulation predicts severe thunderstorms and heavy rain in Goa / Coastal region during your travel dates!";
+            } else {
+                // Fetch coordinates
+                const coords = <%- JSON.stringify(listing.geometry ? listing.geometry.coordinates : [77.2090, 28.6139]) %>;
+                const lat = coords[1];
+                const lng = coords[0];
+
+                try {
+                    const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=weather_code,precipitation_sum&timezone=auto`);
+                    const weatherData = await weatherRes.json();
+                    
+                    if (weatherData && weatherData.daily) {
+                        const codes = weatherData.daily.weather_code || [];
+                        const rainSums = weatherData.daily.precipitation_sum || [];
+                        
+                        // Check if any day has rain/thunderstorm code (51+ is drizzle, rain, storm, snow)
+                        const rainDayIdx = codes.findIndex((c, i) => c >= 51 || rainSums[i] > 5);
+                        if (rainDayIdx !== -1) {
+                            isRainy = true;
+                            const rainDateStr = weatherData.daily.time[rainDayIdx];
+                            weatherMsg = `🌧️ **Live Rain Warning** 🌧️<br>The forecast predicts precipitation (${rainSums[rainDayIdx]}mm, weather code ${codes[rainDayIdx]}) around **${rainDateStr}** during your stay!`;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch weather forecast", e);
+                }
+            }
+
+            if (isRainy) {
+                // Trigger WanderBot popup!
+                const botMessage = `
+                    <div>
+                        <p>${weatherMsg}</p>
+                        <p>Don't let bad weather wash away your happiness! Activate <strong>Free Weather Protection</strong> now.</p>
+                        <ul style="padding-left: 1.2rem; margin-bottom: 0.8rem; font-size: 0.9rem;">
+                            <li>Get 25% discount voucher for next trip if it rains.</li>
+                            <li>Or reschedule to a sunny weekend with 1-click.</li>
+                        </ul>
+                        <button type="button" class="activate-protection-btn">Activate Free Protection</button>
+                    </div>
+                `;
+                
+                if (window.triggerWanderBotMessage) {
+                    window.triggerWanderBotMessage(botMessage, () => {
+                        // Callback when user activates protection
+                        document.getElementById("weatherProtected").value = "true";
+                        const badge = document.getElementById("weather-protection-badge");
+                        badge.classList.remove("d-none");
+                        badge.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    });
+                }
+            }
+        }
+
+        const startDatePicker = flatpickr("#startDate", {
+            ...datePickerOptions,
+            onChange: function(selectedDates, dateStr, instance) {
+                endDatePicker.set('minDate', dateStr);
+                checkWeatherAndOfferProtection();
+            }
+        });
+
+        const endDatePicker = flatpickr("#endDate", {
+            ...datePickerOptions,
+            onChange: function(selectedDates, dateStr, instance) {
+                checkWeatherAndOfferProtection();
+            }
+        });
+
+        // Add listener for toggle to check immediately if dates already selected
+        document.getElementById("simulateRain").addEventListener("change", () => {
+            checkWeatherAndOfferProtection();
+        });
+
+        // Real-time updates
+        socket.on('datesLocked', (data) => {
+            if(data.listingId === listingId) {
+                console.log("Dates locked by someone else:", data);
+                disabledDates.push({
+                    from: data.startDate,
+                    to: data.endDate
+                });
+                startDatePicker.set('disable', disabledDates);
+                endDatePicker.set('disable', disabledDates);
+            }
+        });
+
+        socket.on('datesUnlocked', (data) => {
+            if(data.listingId === listingId) {
+                console.log("Dates unlocked:", data);
+                disabledDates = disabledDates.filter(d => d.from !== data.startDate && d.to !== data.endDate);
+                startDatePicker.set('disable', disabledDates);
+                endDatePicker.set('disable', disabledDates);
+            }
+        });
+    });
+</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const coords = <%- JSON.stringify(listing.geometry ? listing.geometry.coordinates : [77.2090, 28.6139]) %>;
+        const lat = coords[1];
+        const lng = coords[0];
+
+        const map = L.map('map').setView([lat, lng], 13);
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        L.marker([lat, lng]).addTo(map)
+            .bindPopup("<b><%=listing.title%></b><br><%=listing.location%>")
+            .openPopup();
+            
+        // Calculate landmarks
+        const landmarks = [
+            { name: "City Center / Downtown", lat: lat + (Math.random() - 0.5) * 0.05, lng: lng + (Math.random() - 0.5) * 0.05 },
+            { name: "Nearest Metro / Transit Station", lat: lat + (Math.random() - 0.5) * 0.02, lng: lng + (Math.random() - 0.5) * 0.02 },
+            { name: "Local Tourist Attraction", lat: lat + (Math.random() - 0.5) * 0.03, lng: lng + (Math.random() - 0.5) * 0.03 },
+            { name: "International Airport", lat: lat + (Math.random() - 0.5) * 0.2, lng: lng + (Math.random() - 0.5) * 0.2 }
+        ];
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radius of the earth in km
+            const dLat = (lat2-lat1) * Math.PI / 180;
+            const dLon = (lon2-lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const d = R * c; // Distance in km
+            return d;
+        }
+
+        const list = document.getElementById('landmarks-list');
+        list.innerHTML = "";
+        landmarks.forEach(landmark => {
+            const dist = getDistance(lat, lng, landmark.lat, landmark.lng).toFixed(2);
+            list.innerHTML += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-location-dot me-2 text-danger"></i><strong>${landmark.name}</strong></span>
+                <span class="badge bg-secondary rounded-pill">${dist} km</span>
+            </li>`;
+        });
+    });
+</script>

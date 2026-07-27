@@ -83,8 +83,28 @@
           <label class="form-check-label" for="flexSwitchCheckDefault">Display total after taxes</label>
         </div> 
       </div>
+      
+      <button class="btn btn-outline-dark ms-3 shadow-sm" id="map-toggle-btn">
+          <i class="fa-solid fa-map"></i> Show Map
+      </button>
      </div>
-    <div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1 mt-3">
+
+     <!-- Map Section -->
+     <div id="map-section" style="display: none; margin-top: 1.5rem; position: relative;">
+         <div id="map-index" style="height: 500px; border-radius: 15px; border: 1px solid #ccc; z-index: 1;"></div>
+         <div style="position: absolute; top: 10px; left: 50px; z-index: 1000; display: flex; gap: 10px;">
+             <button id="search-area-btn" class="btn btn-light btn-sm shadow-sm" style="border: 1px solid #ccc; font-weight: 600;">
+                 <i class="fa-solid fa-arrows-spin"></i> Search in this area
+             </button>
+             <button id="near-me-btn" class="btn btn-light btn-sm shadow-sm" style="border: 1px solid #ccc; font-weight: 600;">
+                 <i class="fa-solid fa-location-crosshairs"></i> Near Me
+             </button>
+         </div>
+     </div>
+
+     <div id="listings-list">
+     <div class="row row-cols-lg-3 row-cols-md-2 row-cols-sm-1 mt-3">
+
       <% for (let listing of allListings) { %>
         <a href="/listings/<%=listing._id%>" class="listing-link">
         <div class="card col listing-card">
@@ -102,6 +122,7 @@
             </p>
           </div>
         </div>
+        </a>
         <% } %>
     </div>
 
@@ -116,6 +137,72 @@
             info.style.display="none";
           }   
         }
+      });
+
+      // Interactive Category Filtering
+      document.addEventListener("DOMContentLoaded", () => {
+        const filters = document.querySelectorAll(".filter");
+        const cards = document.querySelectorAll(".listing-card");
+
+        // Define keywords mapping for each category to match against listing titles/descriptions
+        const categoryKeywords = {
+          "trending": ["beach", "modern", "luxury", "pool", "view", "villa"],
+          "rooms": ["room", "loft", "apartment", "studio", "flat", "bed", "stay", "guest"],
+          "iconic cities": ["york", "los angeles", "florence", "tokyo", "paris", "rome", "city", "downtown", "urban", "london"],
+          "mountains": ["mountain", "cabin", "chalet", "hill", "view", "peak", "snow", "retreat", "forest"],
+          "castles": ["castle", "historic", "villa", "manor", "palace", "heritage", "royal"],
+          "amazing pools": ["pool", "villa", "resort", "beachfront", "lakefront", "lake"],
+          "camping": ["camp", "tent", "treehouse", "nature", "outdoor", "wood", "forest", "secluded"],
+          "farms": ["farm", "cottage", "countryside", "barn", "nature", "rural", "rustic"],
+          "arctic": ["arctic", "snow", "ice", "igloo", "cold", "winter", "glacier"],
+          "domes": ["dome", "igloo", "glamping", "tent", "unique"],
+          "boats": ["boat", "houseboat", "yacht", "cruise", "lake", "canal", "water"]
+        };
+
+        filters.forEach(filter => {
+          filter.addEventListener("click", () => {
+            const isActive = filter.classList.contains("active-filter");
+
+            // Deactivate all filters first
+            filters.forEach(f => {
+              f.classList.remove("active-filter");
+              f.style.opacity = "0.7";
+              f.style.borderBottom = "none";
+            });
+
+            if (!isActive) {
+              // Mark this filter as active
+              filter.classList.add("active-filter");
+              filter.style.opacity = "1";
+              filter.style.borderBottom = "2px solid #fe424d";
+
+              const categoryName = filter.querySelector("p").innerText.trim().toLowerCase();
+              const keywords = categoryKeywords[categoryName] || [];
+
+              cards.forEach(card => {
+                const parentAnchor = card.closest("a.listing-link");
+                if (parentAnchor) {
+                  const textToSearch = parentAnchor.innerText.toLowerCase();
+                  const isMatch = keywords.some(keyword => textToSearch.includes(keyword));
+                  
+                  if (isMatch) {
+                    parentAnchor.style.display = "block";
+                  } else {
+                    parentAnchor.style.display = "none";
+                  }
+                }
+              });
+            } else {
+              // Deactivated, show all listings
+              cards.forEach(card => {
+                const parentAnchor = card.closest("a.listing-link");
+                if (parentAnchor) {
+                  parentAnchor.style.display = "block";
+                }
+              });
+            }
+          });
+        });
       });
     </script>
 

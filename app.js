@@ -22,6 +22,7 @@ const User=require("./models/user.js");
 const listingRouter=require("./routes/listing.js");//require route filr
 const reviewsRouter=require("./routes/review.js");
 const userRouter=require("./routes/user.js");
+const bookingRouter=require("./routes/booking.js");
 
 const isLoggedIn=require("./middleware.js");
 
@@ -47,6 +48,7 @@ async function main(){
 
 app.set("view engine","ejs");
 app.set("views",path.join(__dirname,"views"));
+app.use(express.json());
 app.use(express.urlencoded({extended:true}));
 app.use(methodOverride("_method"));
 app.engine('ejs', ejsMate);
@@ -98,15 +100,31 @@ app.use((req,res,next)=>{
     res.locals.success=req.flash("success");//middleware to set success msg
     res.locals.error=req.flash("error");//middleware to set error msg
     res.locals.currUser=req.user;//info of curr user logged in
+    res.locals.searchVal=req.query.q || "";
     next();
 });
 
 
 
 
+const bookingController = require("./controllers/booking.js");
+app.get("/bookings", isLoggedIn.isLoggedIn, bookingController.myBookings);
+
+const chatRouter = require("./routes/chat.js");
+
 app.use("/listings",listingRouter);//use route file
 app.use("/listings/:id/reviews", reviewsRouter);
+app.use("/listings/:id/bookings", bookingRouter);
+app.use("/api/chat", chatRouter);
 app.use("/", userRouter);
+
+app.get("/privacy", (req, res) => {
+    res.render("privacy.ejs");
+});
+
+app.get("/terms", (req, res) => {
+    res.render("terms.ejs");
+});
 
 
 
@@ -122,6 +140,20 @@ app.use((err,req,res,next)=>{
 });
 
 
-app.listen(8080,()=>{
-    console.log("app listning to server 8080");
+const http = require('http');
+const server = http.createServer(app);
+const { Server } = require("socket.io");
+const io = new Server(server);
+
+app.set('io', io);
+
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+    });
 });
+
+server.listen(8080,()=>{
+    console.log("app listning to server 8080");
+});

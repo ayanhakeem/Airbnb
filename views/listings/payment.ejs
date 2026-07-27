@@ -1,0 +1,124 @@
+<% layout("/layouts/boilerplate")%>
+<div class="row mt-3">
+    <div class="col-8 offset-2">
+        <h3>Complete Your Booking</h3>
+        
+        <div class="card show-card listing-card mb-3">
+            <div class="card-body">
+                <h5 class="card-title"><%=listing.title%></h5>
+                <p class="card-text">
+                    <strong>Dates:</strong> <%=booking.startDate.toDateString()%> to <%=booking.endDate.toDateString()%>
+                </p>
+                <p class="card-text">
+                    <strong>Status:</strong> <span class="badge bg-warning text-dark"><%=booking.status%></span>
+                </p>
+                <p class="card-text text-danger">
+                    <i class="fa-solid fa-clock"></i> These dates are locked for you until <strong><span id="lock-timer" data-locked-until="<%=booking.lockedUntil.getTime()%>"></span></strong>. Please complete payment before the timer expires.
+                </p>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Price Details</h5>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Price per night:</span>
+                    <span>&#8377;<%=listing.price.toLocaleString("en-IN")%></span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Total Nights:</span>
+                    <span id="booking-nights">1</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between mb-3">
+                    <strong>Total Amount:</strong>
+                    <strong id="booking-total">&#8377;<%=listing.price.toLocaleString("en-IN")%></strong>
+                </div>
+
+                <div class="mb-2">
+                    <label for="promoCodeInput" class="form-label small fw-bold">Have a promo code?</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="promoCodeInput" placeholder="Enter coupon code (e.g. WANDER15)">
+                        <button class="btn btn-outline-dark" type="button" id="apply-promo-btn">Apply</button>
+                    </div>
+                    <div id="promo-message" class="mt-2 small fw-bold" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h4>Payment</h4>
+                <p>You will be redirected to Stripe to securely complete your payment.</p>
+                <form method="POST" action="/listings/<%=listing._id%>/bookings/<%=booking._id%>/stripe-session">
+                    <input type="hidden" id="applied-promo-input" name="promoCode" value="">
+                    <button type="submit" class="btn btn-dark w-100">Pay with Stripe</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const timerElement = document.getElementById('lock-timer');
+    const lockedUntil = parseInt(timerElement.getAttribute('data-locked-until'));
+
+    function updateTimer() {
+        const now = new Date().getTime();
+        const distance = lockedUntil - now;
+
+        if (distance < 0) {
+            timerElement.innerHTML = "EXPIRED";
+            timerElement.classList.add('text-danger');
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+            return;
+        }
+
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        timerElement.innerHTML = minutes + "m " + seconds + "s ";
+    }
+
+    setInterval(updateTimer, 1000);
+    updateTimer();
+
+    // Calculate nights & discount logic
+    const startDate = new Date("<%= booking.startDate %>");
+    const endDate = new Date("<%= booking.endDate %>");
+    const diffTime = Math.abs(endDate - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+    const basePrice = <%= listing.price %>;
+    const finalPrice = basePrice * diffDays;
+
+    document.getElementById("booking-nights").innerText = diffDays;
+    document.getElementById("booking-total").innerHTML = "&#8377;" + finalPrice.toLocaleString("en-IN");
+
+    document.getElementById("apply-promo-btn").addEventListener("click", () => {
+        const promoVal = document.getElementById("promoCodeInput").value.trim().toUpperCase();
+        const msgDiv = document.getElementById("promo-message");
+        const hiddenInput = document.getElementById("applied-promo-input");
+        
+        msgDiv.style.display = "block";
+        if (promoVal === "WANDER10" || promoVal === "WANDER15") {
+            const discountPercent = promoVal === "WANDER10" ? 10 : 15;
+            const discountAmount = finalPrice * (discountPercent / 100);
+            const discountedPrice = finalPrice - discountAmount;
+            
+            document.getElementById("booking-total").innerHTML = `
+                <del class="text-muted mr-2">&#8377;${finalPrice.toLocaleString("en-IN")}</del> 
+                <span class="text-success">&#8377;${discountedPrice.toLocaleString("en-IN")}</span>
+            `;
+            msgDiv.innerText = `🎉 Success! Host discount code "${promoVal}" applied (${discountPercent}% off)`;
+            msgDiv.className = "mt-2 small fw-bold text-success";
+            hiddenInput.value = promoVal;
+        } else {
+            msgDiv.innerText = "❌ Invalid coupon code.";
+            msgDiv.className = "mt-2 small fw-bold text-danger";
+            hiddenInput.value = "";
+            document.getElementById("booking-total").innerHTML = "&#8377;" + finalPrice.toLocaleString("en-IN");
+        }
+    });
+</script>

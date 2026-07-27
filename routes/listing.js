@@ -19,8 +19,12 @@ route("/")
 //new route
 router.get("/new",isLoggedIn,listingController.renderNewform);//callback for new route
 
+router.get("/api/geojson", listingController.apiGeoJSON);
+router.get("/api/search", listingController.apiSearch);
+
 router.
 route("/:id")
+
 .get(wrapAsync(listingController.showListing))//show
 .put(isLoggedIn,isOwner,upload.single("listing[image]"),validateListing,wrapAsync(listingController.updateListing))//update
 .delete(isLoggedIn,isOwner,wrapAsync(listingController.destroyListing));//delete

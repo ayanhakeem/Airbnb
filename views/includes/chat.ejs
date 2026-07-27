@@ -1,0 +1,49 @@
+<!-- Floating AI Chatbot (WanderBot) -->
+
+<button id="chat-widget-button" title="Chat with WanderBot">
+    <i class="fa-solid fa-comment-dots"></i>
+</button>
+
+<div id="chat-widget-container">
+    <div class="chat-header">
+        <div class="chat-header-info">
+            <div class="chat-bot-avatar">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+            <div>
+                <h4 class="chat-header-title">WanderBot</h4>
+                <p class="chat-header-subtitle">Your AI Travel Assistant</p>
+            </div>
+        </div>
+        <button id="chat-close-btn" class="chat-close-btn">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <div class="chat-messages" id="chat-widget-messages">
+        <!-- Initial Message -->
+        <div class="message assistant">
+            <div class="message-content">
+                Hi! 🌟 I'm **WanderBot**, your AI helper here at Wanderlust. Ask me about booking listings, refund policies, or travel recommendations!
+            </div>
+            <div class="message-time">Just now</div>
+        </div>
+    </div>
+
+    <!-- Quick Suggestions Section -->
+    <div class="quick-suggestions">
+        <button class="suggestion-chip" data-query="How do I book a place?">How to Book</button>
+        <button class="suggestion-chip" data-query="Recommend a beach house stay">Beach House Recommendations</button>
+        <button class="suggestion-chip" data-query="What is the refund policy?">Refund Policy</button>
+    </div>
+
+    <form class="chat-input-form" id="chat-widget-form" autocomplete="off">
+        <input type="text" id="chat-widget-input" class="chat-input-field" placeholder="Ask WanderBot anything..." required>
+        <button type="button" id="chat-mic-btn" class="chat-mic-btn" title="Speak to WanderBot">
+            <i class="fa-solid fa-microphone"></i>
+        </button>
+        <button type="submit" class="chat-send-btn">
+            <i class="fa-solid fa-paper-plane"></i>
+        </button>
+    </form>
+</div>
